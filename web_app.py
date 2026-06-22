@@ -3,9 +3,8 @@ import base64
 import urllib.parse
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse
-import uvicorn
-from fastmcp import Client
 import markdown
+from fastmcp import Client
 
 MCP_SERVER_URL = "http://127.0.0.1:8001/mcp"
 
@@ -33,14 +32,37 @@ async def fetch_search_from_mcp(query: str, tags: list):
     print(f"[Python] Recherche en cours: '{query}' | Filtres: {tags}", flush=True)
     try:
         async with Client(MCP_SERVER_URL) as client:
-            args = {"search_terms": query, "limit": 10}
+            args = {"search_terms": query, "limit": 20}
             if tags:
                 args["tags"] = tags
-            res = await asyncio.wait_for(client.call_tool("retrieve_search_documents", args), timeout=30.0)
-            data = res.structured_content
-            if isinstance(data, dict) and "result" in data:
-                return data["result"]
-            return data if isinstance(data, list) else []
+            # TIMEOUT PASSE A 120 SECONDES DE SÉCURITÉ POUR LE RERANKING LOURD
+            res = await asyncio.wait_for(client.call_tool("retrieve_search_documents", args), timeout=120.0)
+            
+            # 🚨 PARSING BLINDÉ (Comme dans chat_tab.py)
+            data = None
+            
+            # 1. Essai avec l'attribut natif
+            if hasattr(res, "structured_content") and res.structured_content:
+                data = res.structured_content
+            
+            # 2. Si échec, extraction forcée depuis le contenu texte brut
+            elif hasattr(res, "content"):
+                import json
+                text = "".join(getattr(c, "text", str(c)) for c in (res.content or []))
+                if text:
+                    try:
+                        data = json.loads(text)
+                    except:
+                        pass
+                        
+            # 3. Récupération finale de la clé 'result' générée par le serveur
+            if isinstance(data, dict):
+                if "result" in data: return data["result"]
+                return data
+            if isinstance(data, list):
+                return data
+                
+            return []
     except Exception as e:
         print(f"[Erreur Python] Search : {e}", flush=True)
         return []
@@ -104,6 +126,10 @@ HTML_TEMPLATE = """
             inherits: false;
         }
 
+        @property --mouse-x { syntax: "<length>"; initial-value: 0px; inherits: false; }
+        @property --mouse-y { syntax: "<length>"; initial-value: 0px; inherits: false; }
+        @property --glow-size { syntax: "<length>"; initial-value: 0px; inherits: false; }
+
         @keyframes spin-halo { to { --angle: 360deg; } }
 
         @keyframes blink {
@@ -133,6 +159,29 @@ HTML_TEMPLATE = """
 
         h1 a { font-size: clamp(1.25rem, 2.5vw, 2.25rem); }
 
+        .interactive-title {
+            display: inline-block;
+            position: relative;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .title-glow {
+            display: inline-block;
+            background-color: #111827;
+            background-image: radial-gradient(
+                circle var(--glow-size) at var(--mouse-x) var(--mouse-y),
+                rgba(255, 255, 255, 0.85) 0%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            background-repeat: no-repeat;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            transition: --glow-size 0.3s ease;
+        }
+
         #search-input {
             font-size: clamp(0.875rem, 1.3vw, 1.125rem);
             padding-top: clamp(0.6rem, 1vw, 0.875rem);
@@ -145,6 +194,21 @@ HTML_TEMPLATE = """
             font-size: clamp(0.75rem, 1.1vw, 1rem);
             padding-left: clamp(0.875rem, 1.8vw, 1.5rem);
             padding-right: clamp(0.875rem, 1.8vw, 1.5rem);
+            background-color: #111827;
+            background-image: radial-gradient(
+                circle var(--glow-size) at var(--mouse-x) var(--mouse-y),
+                rgba(255, 255, 255, 0.6) 0%,
+                transparent 100%
+            );
+            transition: --glow-size 0.3s ease, background-color 0.2s ease;
+        }
+
+        /* ✅ 1. Bouton grisé sans effet pendant la recherche */
+        #submit-btn:disabled {
+            background-color: #9ca3af;
+            background-image: none;
+            pointer-events: none;
+            cursor: not-allowed;
         }
 
         .result-item { opacity: 0; }
@@ -212,39 +276,45 @@ HTML_TEMPLATE = """
             animation: textPulse 3s ease-in-out infinite;
         }
 
+        /* ✅ 2. Tags : glow sur hover (état non coché uniquement) */
         .tag-label span {
             font-size: clamp(0.7rem, 1vw, 0.875rem);
             padding: clamp(0.3rem, 0.55vw, 0.5rem) clamp(0.55rem, 1vw, 1rem);
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tag-label input:not(:checked) ~ span {
+            background-color: #ffffff;
+            background-image: radial-gradient(
+                circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                rgba(0, 0, 0, 0.15) 0%,
+                transparent 100%
+            );
+            transition: --glow-size 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
+        }
+
+        .tag-label input:checked ~ span {
+            background-color: #111827;
+            background-image: radial-gradient(
+                circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                rgba(255, 255, 255, 0.6) 0%,
+                transparent 100%
+            );
+            transition: --glow-size 0.25s ease;
         }
 
         /* --- STYLES MARKDOWN POUR LE RÉSUMÉ --- */
-        .markdown-body {
-            color: #1f2937; /* equivalent to text-gray-800 */
-        }
+        .markdown-body { color: #1f2937; }
         .markdown-body p { margin-bottom: 0.75rem; }
         .markdown-body p:last-child { margin-bottom: 0; }
-        .markdown-body ul { 
-            list-style-type: disc; 
-            padding-left: 1.5rem; 
-            margin-top: 0.5rem; 
-            margin-bottom: 0.75rem; 
-        }
-        .markdown-body ol { 
-            list-style-type: decimal; 
-            padding-left: 1.5rem; 
-            margin-top: 0.5rem; 
-            margin-bottom: 0.75rem; 
-        }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.75rem; }
+        .markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.75rem; }
         .markdown-body li { margin-bottom: 0.25rem; }
-        .markdown-body strong { font-weight: 700; color: #000; }
+        .markdown-body strong { font-weight: 700; color: #111827; }
         .markdown-body em { font-style: italic; }
-        .markdown-body code { 
-            font-family: monospace; 
-            background-color: #f3f4f6; 
-            padding: 0.1rem 0.3rem; 
-            border-radius: 0.25rem; 
-            font-size: 0.9em;
-        }
+        .markdown-body code { font-family: monospace; background-color: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.9em; }
     </style>
 </head>
 <body class="bg-white text-gray-900 font-sans antialiased selection:bg-gray-300">
@@ -252,8 +322,8 @@ HTML_TEMPLATE = """
     <div class="px-4 sm:px-6" id="page-wrapper">
 
         <h1 class="font-bold tracking-tight text-center text-black mb-5 sm:mb-8">
-            <a href="?" title="Effacer la recherche" class="hover:underline decoration-4 underline-offset-4">
-                Recherche Sémantique
+            <a href="?" title="Réinitialiser la recherche" class="interactive-title">
+                <span class="title-glow">Recherche Sémantique</span>
             </a>
         </h1>
 
@@ -264,7 +334,7 @@ HTML_TEMPLATE = """
                         class="w-full rounded-full border-2 border-gray-300 focus:outline-none focus:border-black font-medium transition-colors placeholder-gray-500"
                         id="search-input">
                     <button type="submit" id="submit-btn"
-                        class="absolute right-2 top-2 bottom-2 bg-black text-white rounded-full font-bold hover:bg-gray-800 transition-colors disabled:bg-gray-400 whitespace-nowrap">
+                        class="absolute right-2 top-2 bottom-2 text-white rounded-full font-bold disabled:bg-gray-400 whitespace-nowrap overflow-hidden">
                         Chercher
                     </button>
                 </div>
@@ -331,6 +401,7 @@ HTML_TEMPLATE = """
                 document.getElementById('search-wrapper').classList.add('loading');
 
                 const btn = document.getElementById('submit-btn');
+                btn.style.setProperty('--glow-size', '0px');
                 btn.disabled = true;
                 btn.innerHTML = '<span class="dot-btn">.</span><span class="dot-btn">.</span><span class="dot-btn">.</span>';
 
@@ -368,6 +439,57 @@ HTML_TEMPLATE = """
                     fadeOutThenSubmit();
                 }
             }
+        });
+
+        const interactiveTitle = document.querySelector('.interactive-title');
+        const titleGlow = document.querySelector('.title-glow');
+        const submitBtn = document.getElementById('submit-btn');
+
+        if (interactiveTitle && titleGlow) {
+            interactiveTitle.addEventListener('mousemove', (e) => {
+                const rect = interactiveTitle.getBoundingClientRect();
+                titleGlow.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                titleGlow.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+            });
+            interactiveTitle.addEventListener('mouseenter', () => {
+                titleGlow.style.setProperty('--glow-size', '55px');
+            });
+            interactiveTitle.addEventListener('mouseleave', () => {
+                titleGlow.style.setProperty('--glow-size', '0px');
+            });
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('mousemove', (e) => {
+                const rect = submitBtn.getBoundingClientRect();
+                submitBtn.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                submitBtn.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+            });
+            submitBtn.addEventListener('mouseenter', () => {
+                submitBtn.style.setProperty('--glow-size', '30px');
+            });
+            submitBtn.addEventListener('mouseleave', () => {
+                submitBtn.style.setProperty('--glow-size', '0px');
+            });
+        }
+
+        document.querySelectorAll('.tag-label').forEach(label => {
+            const span = label.querySelector('span');
+            if (!span) return;
+
+            label.addEventListener('mousemove', (e) => {
+                const rect = span.getBoundingClientRect();
+                span.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                span.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+            });
+
+            label.addEventListener('mouseenter', () => {
+                span.style.setProperty('--glow-size', '30px');
+            });
+
+            label.addEventListener('mouseleave', () => {
+                span.style.setProperty('--glow-size', '0px');
+            });
         });
 
         requestAnimationFrame(() => {
@@ -487,7 +609,10 @@ async def serve_page(request: Request):
 
 
 if __name__ == "__main__":
+    import uvicorn
     print("="*60, flush=True)
-    print("🚀 Serveur Web SSR démarré (Port 8000)", flush=True)
+    print("🚀 Serveur Web SSR Multi-instances démarré (Port 8000)", flush=True)
     print("="*60, flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    # Lancement de 4 "instances" (workers) en parallèle
+    uvicorn.run("web_app:app", host="0.0.0.0", port=8000, workers=4)
