@@ -157,6 +157,22 @@ HTML_TEMPLATE = """
             50%       { opacity: 1; }
         }
 
+        @keyframes btnOut {
+            to { opacity: 0; transform: scale(0.85); }
+        }
+        @keyframes btnIn {
+            from { opacity: 0; transform: scale(0.85); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        #submit-btn .btn-label {
+            display: inline-block;
+            animation: btnIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        #submit-btn .btn-label.leaving {
+            animation: btnOut 0.15s ease-in forwards;
+        }
+
         h1 a { font-size: clamp(1.25rem, 2.5vw, 2.25rem); }
 
         .interactive-title {
@@ -195,17 +211,23 @@ HTML_TEMPLATE = """
             padding-left: clamp(0.875rem, 1.8vw, 1.5rem);
             padding-right: clamp(0.875rem, 1.8vw, 1.5rem);
             background-color: #111827;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background-image: radial-gradient(
                 circle var(--glow-size) at var(--mouse-x) var(--mouse-y),
                 rgba(255, 255, 255, 0.6) 0%,
                 transparent 100%
             );
-            transition: --glow-size 0.3s ease, background-color 0.2s ease;
+            transition: --glow-size 0.3s ease,
+                        background-color 0.4s ease,
+                        width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+            white-space: nowrap;
         }
 
-        /* ✅ 1. Bouton grisé sans effet pendant la recherche */
-        #submit-btn:disabled {
-            background-color: #9ca3af;
+        #submit-btn.loading {
+            background-color: #6b7280;
             background-image: none;
             pointer-events: none;
             cursor: not-allowed;
@@ -276,7 +298,6 @@ HTML_TEMPLATE = """
             animation: textPulse 3s ease-in-out infinite;
         }
 
-        /* ✅ 2. Tags : glow sur hover (état non coché uniquement) */
         .tag-label span {
             font-size: clamp(0.7rem, 1vw, 0.875rem);
             padding: clamp(0.3rem, 0.55vw, 0.5rem) clamp(0.55rem, 1vw, 1rem);
@@ -302,7 +323,7 @@ HTML_TEMPLATE = """
                 rgba(255, 255, 255, 0.6) 0%,
                 transparent 100%
             );
-            transition: --glow-size 0.25s ease;
+            transition: --glow-size 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
         /* --- STYLES MARKDOWN POUR LE RÉSUMÉ --- */
@@ -403,9 +424,33 @@ HTML_TEMPLATE = """
                 const btn = document.getElementById('submit-btn');
                 btn.style.setProperty('--glow-size', '0px');
                 btn.disabled = true;
-                btn.innerHTML = '<span class="dot-btn">.</span><span class="dot-btn">.</span><span class="dot-btn">.</span>';
 
-                requestAnimationFrame(() => { requestAnimationFrame(() => { form.submit(); }); });
+                const ghost = btn.cloneNode(false);
+                ghost.style.cssText = 'position:absolute;visibility:hidden;width:auto;pointer-events:none;';
+                ghost.innerHTML = `<span class="dot-btn">.</span><span class="dot-btn">.</span><span class="dot-btn">.</span>`;
+                document.body.appendChild(ghost);
+                const targetWidth = ghost.offsetWidth + 'px';
+                document.body.removeChild(ghost);
+
+                btn.style.width = btn.offsetWidth + 'px';
+
+                btn.innerHTML = `<span class="btn-label leaving">Chercher</span>`;
+
+                setTimeout(() => {
+                    btn.innerHTML = `<span class="btn-label">
+                        <span class="dot-btn">.</span>
+                        <span class="dot-btn">.</span>
+                        <span class="dot-btn">.</span>
+                    </span>`;
+
+                    requestAnimationFrame(() => {
+                        btn.style.width = targetWidth;
+                    });
+
+                    setTimeout(() => { btn.classList.add('loading'); }, 50);
+
+                    requestAnimationFrame(() => { requestAnimationFrame(() => { form.submit(); }); });
+                }, 150);
             };
 
             const fadeOutThenSubmit = () => {
