@@ -2,7 +2,7 @@ import asyncio
 import base64
 import urllib.parse
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import markdown
 from fastmcp import Client
 
@@ -35,17 +35,12 @@ async def fetch_search_from_mcp(query: str, tags: list):
             args = {"search_terms": query, "limit": 20}
             if tags:
                 args["tags"] = tags
-            # TIMEOUT PASSE A 120 SECONDES DE SÉCURITÉ POUR LE RERANKING LOURD
-            res = await asyncio.wait_for(client.call_tool("retrieve_search_documents", args), timeout=120.0)
-            
-            # 🚨 PARSING BLINDÉ (Comme dans chat_tab.py)
+            res = await asyncio.wait_for(client.call_tool("retrieve_search_documents", args), timeout=240.0)
+
             data = None
-            
-            # 1. Essai avec l'attribut natif
+
             if hasattr(res, "structured_content") and res.structured_content:
                 data = res.structured_content
-            
-            # 2. Si échec, extraction forcée depuis le contenu texte brut
             elif hasattr(res, "content"):
                 import json
                 text = "".join(getattr(c, "text", str(c)) for c in (res.content or []))
@@ -54,15 +49,19 @@ async def fetch_search_from_mcp(query: str, tags: list):
                         data = json.loads(text)
                     except:
                         pass
-                        
-            # 3. Récupération finale de la clé 'result' générée par le serveur
+
             if isinstance(data, dict):
-                if "result" in data: return data["result"]
+                if "result" in data:
+                    return data["result"]
                 return data
             if isinstance(data, list):
                 return data
-                
+
             return []
+            
+    except asyncio.TimeoutError:
+        print("[Erreur Python] Timeout atteint lors de la recherche.", flush=True)
+        return "TIMEOUT"
     except Exception as e:
         print(f"[Erreur Python] Search : {e}", flush=True)
         return []
@@ -326,7 +325,6 @@ HTML_TEMPLATE = """
             transition: --glow-size 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
-        /* --- STYLES MARKDOWN POUR LE RÉSUMÉ --- */
         .markdown-body { color: #1f2937; }
         .markdown-body p { margin-bottom: 0.75rem; }
         .markdown-body p:last-child { margin-bottom: 0; }
@@ -360,7 +358,7 @@ HTML_TEMPLATE = """
                     </button>
                 </div>
 
-                <div class="mt-5 flex flex-wrap gap-2 justify-center">
+                <div id="tags-container" class="mt-5 flex flex-wrap gap-2 justify-center">
                     {{tags_html}}
                 </div>
             </div>
@@ -380,7 +378,7 @@ HTML_TEMPLATE = """
 
     <script>
         const wrapper = document.getElementById('page-wrapper');
-        const IS_CENTERED = {{is_centered}};
+        let IS_CENTERED = {{is_centered}};
 
         (function() {
             const vw = window.innerWidth;
@@ -391,6 +389,7 @@ HTML_TEMPLATE = """
             if (!IS_CENTERED) {
                 wrapper.style.paddingTop = '2rem';
                 wrapper.style.paddingBottom = '2rem';
+                document.body.style.overflow = '';
                 return;
             }
             document.body.style.overflow = 'hidden';
@@ -407,18 +406,95 @@ HTML_TEMPLATE = """
             });
         });
 
+        // 🚨 SCRIPT DE GESTION SPA & TIMEOUT 🚨
+        const executeSearch = async (form) => {
+            try {
+                const formData = new FormData(form);
+                const response = await fetch('?', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'fetch-mode': 'ajax' } // Indique au serveur qu'on veut du JSON
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 1. Mettre à jour l'interface via le DOM (pas de rechargement)
+                    const resultsContainer = document.getElementById('results-container');
+                    resultsContainer.innerHTML = data.results_html;
+                    document.getElementById('tags-container').innerHTML = data.tags_html;
+                    
+                    // 2. Restaurer la position et l'état
+                    resultsContainer.classList.remove('results-hiding');
+                    resultsContainer.style.display = '';
+                    resultsContainer.style.visibility = '';
+                    
+                    // 3. Gérer le centrage dynamiquement
+                    IS_CENTERED = data.is_centered;
+                    applyCentering();
+
+                    // 4. Arrêter l'animation du bouton et le remettre à son état initial
+                    document.getElementById('search-wrapper').classList.remove('loading');
+                    const btn = document.getElementById('submit-btn');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    btn.style.width = 'auto';
+                    btn.innerHTML = `<span class="btn-label">Chercher</span>`;
+                    
+                    // 5. Cacher l'indicateur de chargement
+                    document.getElementById('loading-indicator').classList.remove('visible');
+                    
+                    // 6. Relancer les animations d'apparition des résultats
+                    document.querySelectorAll('.result-item').forEach((el, i) => {
+                        setTimeout(() => { el.classList.add('visible'); }, i * 80);
+                    });
+
+                    // 7. Re-binder les événements de lueur sur les nouveaux tags
+                    bindTagEvents();
+                } else {
+                    throw new Error("Erreur serveur " + response.status);
+                }
+            } catch (error) {
+                console.error("Erreur de requête:", error);
+                
+                // GESTION DE L'ERREUR 504 OU TIMEOUT
+                const indicator = document.getElementById('loading-indicator');
+                indicator.innerHTML = '<span class="text-sm font-bold tracking-widest uppercase text-red-500">Délai dépassé (Timeout). Veuillez relancer la recherche.</span>';
+                indicator.style.animation = 'none';
+                
+                document.getElementById('search-wrapper').classList.remove('loading');
+                
+                const btn = document.getElementById('submit-btn');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                btn.style.width = 'auto';
+                btn.innerHTML = `<span class="btn-label">Chercher</span>`;
+                
+                const resultsContainer = document.getElementById('results-container');
+                if (resultsContainer) {
+                    resultsContainer.classList.remove('results-hiding');
+                    resultsContainer.style.display = '';
+                    resultsContainer.style.visibility = '';
+                }
+            }
+        };
+
         document.getElementById('search-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const form = this;
             const resultsContainer = document.getElementById('results-container');
-            const hasResults = resultsContainer.children.length > 0;
+            const hasResults = resultsContainer.innerHTML.trim().length > 0;
 
             document.body.style.overflow = '';
             wrapper.style.paddingTop = '2rem';
             wrapper.style.paddingBottom = '2rem';
 
             const triggerSubmit = () => {
-                document.getElementById('loading-indicator').classList.add('visible');
+                const indicator = document.getElementById('loading-indicator');
+                indicator.classList.add('visible');
+                indicator.innerHTML = '<span class="text-xs font-bold tracking-widest uppercase text-gray-400">Recherche en cours</span>';
+                indicator.style.animation = '';
+
                 document.getElementById('search-wrapper').classList.add('loading');
 
                 const btn = document.getElementById('submit-btn');
@@ -433,7 +509,6 @@ HTML_TEMPLATE = """
                 document.body.removeChild(ghost);
 
                 btn.style.width = btn.offsetWidth + 'px';
-
                 btn.innerHTML = `<span class="btn-label leaving">Chercher</span>`;
 
                 setTimeout(() => {
@@ -443,13 +518,11 @@ HTML_TEMPLATE = """
                         <span class="dot-btn">.</span>
                     </span>`;
 
-                    requestAnimationFrame(() => {
-                        btn.style.width = targetWidth;
-                    });
-
+                    requestAnimationFrame(() => { btn.style.width = targetWidth; });
                     setTimeout(() => { btn.classList.add('loading'); }, 50);
 
-                    requestAnimationFrame(() => { requestAnimationFrame(() => { form.submit(); }); });
+                    // 🚨 Appel asynchrone JSON
+                    requestAnimationFrame(() => { requestAnimationFrame(() => { executeSearch(form); }); });
                 }, 150);
             };
 
@@ -457,7 +530,7 @@ HTML_TEMPLATE = """
                 if (!hasResults) { triggerSubmit(); return; }
                 resultsContainer.classList.add('results-hiding');
                 resultsContainer.addEventListener('animationend', () => {
-                    resultsContainer.style.visibility = '';
+                    resultsContainer.style.visibility = 'hidden';
                     resultsContainer.style.display = 'none';
                     triggerSubmit();
                 }, { once: true });
@@ -518,24 +591,28 @@ HTML_TEMPLATE = """
             });
         }
 
-        document.querySelectorAll('.tag-label').forEach(label => {
-            const span = label.querySelector('span');
-            if (!span) return;
+        function bindTagEvents() {
+            document.querySelectorAll('.tag-label').forEach(label => {
+                const span = label.querySelector('span');
+                if (!span) return;
 
-            label.addEventListener('mousemove', (e) => {
-                const rect = span.getBoundingClientRect();
-                span.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                span.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-            });
+                label.addEventListener('mousemove', (e) => {
+                    const rect = span.getBoundingClientRect();
+                    span.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                    span.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                });
 
-            label.addEventListener('mouseenter', () => {
-                span.style.setProperty('--glow-size', '30px');
-            });
+                label.addEventListener('mouseenter', () => {
+                    span.style.setProperty('--glow-size', '30px');
+                });
 
-            label.addEventListener('mouseleave', () => {
-                span.style.setProperty('--glow-size', '0px');
+                label.addEventListener('mouseleave', () => {
+                    span.style.setProperty('--glow-size', '0px');
+                });
             });
-        });
+        }
+        
+        bindTagEvents();
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -574,6 +651,14 @@ async def serve_page(request: Request):
     if query:
         results_data = await fetch_search_from_mcp(query, selected_tags)
 
+    is_ajax = request.headers.get("fetch-mode") == "ajax"
+
+    # 🚨 DÉCLENCHEMENT DE L'ERREUR DANS L'UI SI LE PYTHON FAIT UN TIMEOUT
+    if results_data == "TIMEOUT":
+        if is_ajax:
+            return JSONResponse({"error": "Timeout Backend"}, status_code=504)
+        return HTMLResponse("Timeout Backend", status_code=504)
+
     tags_html = ""
     if not tags_data:
         tags_html = '<span class="text-gray-500 font-medium text-sm">Aucune source disponible.</span>'
@@ -591,19 +676,15 @@ async def serve_page(request: Request):
             """
 
     results_html = ""
-    is_centered = "true"
+    is_centered_bool = not bool(query)
 
-    if not query:
-        is_centered = "true"
-    elif query and not results_data:
-        is_centered = "false"
+    if query and not results_data:
         results_html = """
         <div class="text-center py-20 text-black font-bold text-lg">
             <p>Aucun document ne correspond à cette recherche.</p>
         </div>
         """
-    else:
-        is_centered = "false"
+    elif query and results_data:
         results_html = f'<p id="results-header" class="text-sm font-bold text-gray-500 mb-8 border-b-2 border-gray-200 pb-4">{len(results_data)} RÉSULTAT(S)</p>'
 
         for i, row in enumerate(results_data):
@@ -617,14 +698,12 @@ async def serve_page(request: Request):
             doc_tags = row[5] if isinstance(row[5], list) else []
 
             tags_badges = " • ".join(doc_tags) if doc_tags else "Aucun tag"
-            
+
             preview = summary
             if len(preview) > 600:
                 preview = preview[:600] + "..."
-                
-            # Conversion du Markdown en HTML
-            preview_html = markdown.markdown(preview)
 
+            preview_html = markdown.markdown(preview)
             safe_filename = urllib.parse.quote(filename)
 
             results_html += f"""
@@ -645,10 +724,19 @@ async def serve_page(request: Request):
             </div>
             """
 
+    # --- Mode SPA : On ne renvoie que les données dynamiques au Javascript ---
+    if is_ajax:
+        return JSONResponse({
+            "results_html": results_html,
+            "tags_html": tags_html,
+            "is_centered": is_centered_bool
+        })
+
+    # --- Mode Classique : On renvoie toute la page (Premier chargement) ---
     final_page = HTML_TEMPLATE.replace("{{query_value}}", query.replace('"', '&quot;'))
     final_page = final_page.replace("{{tags_html}}", tags_html)
     final_page = final_page.replace("{{results_html}}", results_html)
-    final_page = final_page.replace("{{is_centered}}", is_centered)
+    final_page = final_page.replace("{{is_centered}}", "true" if is_centered_bool else "false")
 
     return HTMLResponse(content=final_page)
 
@@ -658,6 +746,5 @@ if __name__ == "__main__":
     print("="*60, flush=True)
     print("🚀 Serveur Web SSR Multi-instances démarré (Port 8000)", flush=True)
     print("="*60, flush=True)
-    
-    # Lancement de 4 "instances" (workers) en parallèle
+
     uvicorn.run("web_app:app", host="0.0.0.0", port=8000, workers=4)
