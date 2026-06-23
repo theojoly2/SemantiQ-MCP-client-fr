@@ -297,13 +297,21 @@ HTML_TEMPLATE = """
             animation: textPulse 3s ease-in-out infinite;
         }
 
+        /* 🚨 NOUVEAU STYLE POUR LES ICÔNES DES TAGS 🚨 */
         .tag-label span {
             font-size: clamp(0.7rem, 1vw, 0.875rem);
-            padding: clamp(0.3rem, 0.55vw, 0.5rem) clamp(0.55rem, 1vw, 1rem);
-            display: inline-block;
+            /* Padding légèrement augmenté pour laisser place à l'icône */
+            padding: clamp(0.3rem, 0.55vw, 0.5rem) clamp(0.75rem, 1.2vw, 1.25rem);
+            display: inline-flex;
+            align-items: center;
             position: relative;
             overflow: hidden;
+            transition: all 0.2s ease;
         }
+
+        /* Afficher/Cacher les icônes en fonction de l'état du checkbox */
+        .tag-label input:checked ~ span .icon-unchecked { display: none; }
+        .tag-label input:not(:checked) ~ span .icon-checked { display: none; }
 
         .tag-label input:not(:checked) ~ span {
             background-color: #ffffff;
@@ -459,7 +467,7 @@ HTML_TEMPLATE = """
                 
                 // GESTION DE L'ERREUR 504 OU TIMEOUT
                 const indicator = document.getElementById('loading-indicator');
-                indicator.innerHTML = '<span class="text-sm font-bold tracking-widest uppercase text-red-500">Délai dépassé (Timeout). Veuillez relancer la recherche.</span>';
+                indicator.innerHTML = '<span class="text-sm font-bold tracking-widest uppercase text-red-500">⏳ Délai dépassé (Timeout). Veuillez relancer la recherche.</span>';
                 indicator.style.animation = 'none';
                 
                 document.getElementById('search-wrapper').classList.remove('loading');
@@ -666,10 +674,14 @@ async def serve_page(request: Request):
         for t in tags_data:
             tag_name = t.get("tag", t) if isinstance(t, dict) else str(t)
             is_checked = "checked" if tag_name in selected_tags else ""
+            
+            # 🚨 INJECTION DES ICÔNES '+' et '✓' DIRECTEMENT DANS LE HTML
             tags_html += f"""
             <label class="cursor-pointer select-none tag-label">
                 <input type="checkbox" name="t" value="{tag_name}" class="peer hidden" {is_checked}>
-                <span class="inline-block rounded-full font-bold border-2 border-gray-200 text-gray-700 peer-checked:bg-black peer-checked:text-white peer-checked:border-black hover:border-gray-400 transition-colors">
+                <span class="inline-flex items-center rounded-full font-bold border-2 border-gray-200 text-gray-700 peer-checked:bg-black peer-checked:text-white peer-checked:border-black hover:border-gray-400 transition-colors">
+                    <svg class="icon-unchecked w-3.5 h-3.5 mr-1.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                    <svg class="icon-checked w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
                     {tag_name}
                 </span>
             </label>
