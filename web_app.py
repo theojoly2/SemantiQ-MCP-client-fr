@@ -18,10 +18,12 @@ async def fetch_tags_from_mcp():
             res = await asyncio.wait_for(client.call_tool("get_available_tags", {}), timeout=10.0)
             data = res.structured_content
             if isinstance(data, dict):
-                if "tags" in data: return data["tags"]
+                if "tags" in data:
+                    return data["tags"]
                 if "result" in data and isinstance(data["result"], dict): return data["result"].get("tags", [])
                 if "result" in data and isinstance(data["result"], list): return data["result"]
-            if isinstance(data, list): return data
+            if isinstance(data, list):
+                return data
             return []
     except Exception as e:
         print(f"[Erreur Python] Tags : {e}", flush=True)
@@ -58,7 +60,7 @@ async def fetch_search_from_mcp(query: str, tags: list):
                 return data
 
             return []
-            
+
     except asyncio.TimeoutError:
         print("[Erreur Python] Timeout atteint lors de la recherche.", flush=True)
         return "TIMEOUT"
@@ -109,6 +111,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='13' cy='13' r='9' fill='none' stroke='%23111827' stroke-width='3.5'/%3E%3Cline x1='19' y1='19' x2='27' y2='27' stroke='%23111827' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
     <title>Recherche Sémantique</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -297,7 +300,6 @@ HTML_TEMPLATE = """
             animation: textPulse 3s ease-in-out infinite;
         }
 
-        /* 🚨 NOUVEAU STYLE POUR LES ICÔNES DES TAGS 🚨 */
         .tag-label span {
             font-size: clamp(0.7rem, 1vw, 0.875rem);
             /* Padding légèrement augmenté pour laisser place à l'icône */
@@ -349,7 +351,7 @@ HTML_TEMPLATE = """
     <div class="px-4 sm:px-6" id="page-wrapper">
 
         <h1 class="font-bold tracking-tight text-center text-black mb-5 sm:mb-8">
-            <a href="?" title="Réinitialiser la recherche" class="interactive-title">
+            <a href="?" class="interactive-title">
                 <span class="title-glow">Recherche Sémantique</span>
             </a>
         </h1>
@@ -414,7 +416,6 @@ HTML_TEMPLATE = """
             });
         });
 
-        // 🚨 SCRIPT DE GESTION SPA & TIMEOUT 🚨
         const executeSearch = async (form) => {
             try {
                 const formData = new FormData(form);
@@ -426,17 +427,17 @@ HTML_TEMPLATE = """
 
                 if (response.ok) {
                     const data = await response.json();
-                    
+
                     // 1. Mettre à jour l'interface via le DOM (pas de rechargement)
                     const resultsContainer = document.getElementById('results-container');
                     resultsContainer.innerHTML = data.results_html;
                     document.getElementById('tags-container').innerHTML = data.tags_html;
-                    
+
                     // 2. Restaurer la position et l'état
                     resultsContainer.classList.remove('results-hiding');
                     resultsContainer.style.display = '';
                     resultsContainer.style.visibility = '';
-                    
+
                     // 3. Gérer le centrage dynamiquement
                     IS_CENTERED = data.is_centered;
                     applyCentering();
@@ -448,10 +449,10 @@ HTML_TEMPLATE = """
                     btn.disabled = false;
                     btn.style.width = 'auto';
                     btn.innerHTML = `<span class="btn-label">Chercher</span>`;
-                    
+
                     // 5. Cacher l'indicateur de chargement
                     document.getElementById('loading-indicator').classList.remove('visible');
-                    
+
                     // 6. Relancer les animations d'apparition des résultats
                     document.querySelectorAll('.result-item').forEach((el, i) => {
                         setTimeout(() => { el.classList.add('visible'); }, i * 80);
@@ -464,20 +465,20 @@ HTML_TEMPLATE = """
                 }
             } catch (error) {
                 console.error("Erreur de requête:", error);
-                
+
                 // GESTION DE L'ERREUR 504 OU TIMEOUT
                 const indicator = document.getElementById('loading-indicator');
                 indicator.innerHTML = '<span class="text-sm font-bold tracking-widest uppercase text-red-500">⏳ Délai dépassé (Timeout). Veuillez relancer la recherche.</span>';
                 indicator.style.animation = 'none';
-                
+
                 document.getElementById('search-wrapper').classList.remove('loading');
-                
+
                 const btn = document.getElementById('submit-btn');
                 btn.classList.remove('loading');
                 btn.disabled = false;
                 btn.style.width = 'auto';
                 btn.innerHTML = `<span class="btn-label">Chercher</span>`;
-                
+
                 const resultsContainer = document.getElementById('results-container');
                 if (resultsContainer) {
                     resultsContainer.classList.remove('results-hiding');
@@ -529,7 +530,6 @@ HTML_TEMPLATE = """
                     requestAnimationFrame(() => { btn.style.width = targetWidth; });
                     setTimeout(() => { btn.classList.add('loading'); }, 50);
 
-                    // 🚨 Appel asynchrone JSON
                     requestAnimationFrame(() => { requestAnimationFrame(() => { executeSearch(form); }); });
                 }, 150);
             };
@@ -619,7 +619,7 @@ HTML_TEMPLATE = """
                 });
             });
         }
-        
+
         bindTagEvents();
 
         requestAnimationFrame(() => {
@@ -661,7 +661,6 @@ async def serve_page(request: Request):
 
     is_ajax = request.headers.get("fetch-mode") == "ajax"
 
-    # 🚨 DÉCLENCHEMENT DE L'ERREUR DANS L'UI SI LE PYTHON FAIT UN TIMEOUT
     if results_data == "TIMEOUT":
         if is_ajax:
             return JSONResponse({"error": "Timeout Backend"}, status_code=504)
@@ -674,8 +673,7 @@ async def serve_page(request: Request):
         for t in tags_data:
             tag_name = t.get("tag", t) if isinstance(t, dict) else str(t)
             is_checked = "checked" if tag_name in selected_tags else ""
-            
-            # 🚨 INJECTION DES ICÔNES '+' et '✓' DIRECTEMENT DANS LE HTML
+
             tags_html += f"""
             <label class="cursor-pointer select-none tag-label">
                 <input type="checkbox" name="t" value="{tag_name}" class="peer hidden" {is_checked}>
