@@ -10,6 +10,27 @@ MCP_SERVER_URL = "http://127.0.0.1:8001/mcp"
 
 app = FastAPI(title="Recherche Sémantique")
 
+LATEX_TO_UNICODE = {
+    r'\rightarrow': '→', r'\leftarrow': '←', r'\leftrightarrow': '↔',
+    r'\Rightarrow': '⇒', r'\Leftarrow': '⇐', r'\Leftrightarrow': '⇔',
+    r'\leq': '≤', r'\geq': '≥', r'\neq': '≠', r'\approx': '≈',
+    r'\in': '∈', r'\notin': '∉', r'\subset': '⊂', r'\cup': '∪', r'\cap': '∩',
+    r'\forall': '∀', r'\exists': '∃', r'\land': '∧', r'\lor': '∨',
+    r'\infty': '∞', r'\pm': '±', r'\times': '×', r'\cdot': '·',
+    r'\alpha': 'α', r'\beta': 'β', r'\gamma': 'γ', r'\delta': 'δ',
+    r'\lambda': 'λ', r'\mu': 'μ', r'\pi': 'π', r'\sigma': 'σ',
+    r'\ldots': '…',
+}
+
+
+def normalize_latex(text: str) -> str:
+    for latex, uni in LATEX_TO_UNICODE.items():
+        text = text.replace(f'${latex}$', uni)
+        text = text.replace(latex, uni)
+    import re
+    text = re.sub(r'\$([^$]{1,60})\$', r'\1', text)
+    return text
+
 
 async def fetch_tags_from_mcp():
     print("[Python] Récupération des tags...", flush=True)
@@ -712,6 +733,8 @@ async def serve_page(request: Request):
             preview = summary
             if len(preview) > 600:
                 preview = preview[:600] + "..."
+
+            preview = normalize_latex(preview)
 
             preview_html = markdown.markdown(preview)
             safe_filename = urllib.parse.quote(filename)
