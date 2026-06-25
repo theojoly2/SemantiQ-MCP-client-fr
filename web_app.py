@@ -143,76 +143,31 @@ HTML_TEMPLATE = """
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        @property --angle {
-            syntax: "<angle>";
-            initial-value: 0deg;
-            inherits: false;
-        }
-
+        @property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
         @property --mouse-x { syntax: "<length>"; initial-value: 0px; inherits: false; }
         @property --mouse-y { syntax: "<length>"; initial-value: 0px; inherits: false; }
         @property --glow-size { syntax: "<length>"; initial-value: 0px; inherits: false; }
 
         @keyframes spin-halo { to { --angle: 360deg; } }
+        @keyframes blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+        @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeSlideDown { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(8px); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes textPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        @keyframes btnOut { to { opacity: 0; transform: scale(0.85); } }
+        @keyframes btnIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
 
-        @keyframes blink {
-            0%, 80%, 100% { opacity: 0; }
-            40%            { opacity: 1; }
-        }
-
-        @keyframes fadeSlideUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeSlideDown {
-            from { opacity: 1; transform: translateY(0); }
-            to   { opacity: 0; transform: translateY(8px); }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes textPulse {
-            0%, 100% { opacity: 0.3; }
-            50%       { opacity: 1; }
-        }
-
-        @keyframes btnOut {
-            to { opacity: 0; transform: scale(0.85); }
-        }
-        @keyframes btnIn {
-            from { opacity: 0; transform: scale(0.85); }
-            to   { opacity: 1; transform: scale(1); }
-        }
-
-        #submit-btn .btn-label {
-            display: inline-block;
-            animation: btnIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        #submit-btn .btn-label.leaving {
-            animation: btnOut 0.15s ease-in forwards;
-        }
+        #submit-btn .btn-label { display: inline-block; animation: btnIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        #submit-btn .btn-label.leaving { animation: btnOut 0.15s ease-in forwards; }
 
         h1 a { font-size: clamp(1.25rem, 2.5vw, 2.25rem); }
 
-        .interactive-title {
-            display: inline-block;
-            position: relative;
-            text-decoration: none;
-            cursor: pointer;
-        }
+        .interactive-title { display: inline-block; position: relative; text-decoration: none; cursor: pointer; }
 
         .title-glow {
             display: inline-block;
             background-color: #111827;
-            background-image: radial-gradient(
-                circle var(--glow-size) at var(--mouse-x) var(--mouse-y),
-                rgba(255, 255, 255, 0.85) 0%,
-                rgba(255, 255, 255, 0) 100%
-            );
+            background-image: radial-gradient(circle var(--glow-size) at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%);
             background-repeat: no-repeat;
             -webkit-background-clip: text;
             background-clip: text;
@@ -237,48 +192,28 @@ HTML_TEMPLATE = """
             display: flex;
             align-items: center;
             justify-content: center;
-            background-image: radial-gradient(
-                circle var(--glow-size) at var(--mouse-x) var(--mouse-y),
-                rgba(255, 255, 255, 0.6) 0%,
-                transparent 100%
-            );
-            transition: --glow-size 0.3s ease,
-                        background-color 0.4s ease,
-                        width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            background-image: radial-gradient(circle var(--glow-size) at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.6) 0%, transparent 100%);
+            transition: --glow-size 0.3s ease, background-color 0.4s ease, width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             overflow: hidden;
             white-space: nowrap;
         }
 
-        #submit-btn.loading {
-            background-color: #6b7280;
-            background-image: none;
-            pointer-events: none;
-            cursor: not-allowed;
-        }
+        #submit-btn.loading { background-color: #6b7280; background-image: none; pointer-events: none; cursor: not-allowed; }
 
         .result-item { opacity: 0; }
         .result-item.visible { animation: fadeSlideUp 0.35s ease forwards; }
         .results-hiding { animation: fadeSlideDown 0.2s ease forwards; }
 
-        #results-header {
-            opacity: 0;
-            animation: fadeIn 0.4s ease 0.1s forwards;
-        }
+        #results-header { opacity: 0; animation: fadeIn 0.4s ease 0.1s forwards; }
 
         #page-wrapper {
             margin-inline: auto;
-            transition: padding-top 0.55s cubic-bezier(0.4, 0, 0.2, 1),
-                        padding-bottom 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: padding-top 0.55s cubic-bezier(0.4, 0, 0.2, 1), padding-bottom 0.55s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #search-container { width: 100%; }
 
-        .search-wrapper {
-            position: relative;
-            border-radius: 9999px;
-            isolation: isolate;
-            width: 100%;
-        }
+        .search-wrapper { position: relative; border-radius: 9999px; isolation: isolate; width: 100%; }
 
         .search-wrapper::before {
             content: '';
@@ -294,36 +229,33 @@ HTML_TEMPLATE = """
         }
 
         .search-wrapper.loading::before {
-            background: conic-gradient(
-                from var(--angle),
-                rgba(244, 114, 182, 0.35),
-                rgba(129, 140, 248, 0.35),
-                rgba(56, 189, 248, 0.35),
-                rgba(52, 211, 153, 0.35),
-                rgba(251, 191, 36, 0.35),
-                rgba(244, 114, 182, 0.35)
-            );
+            background: conic-gradient(from var(--angle), rgba(244,114,182,0.35), rgba(129,140,248,0.35), rgba(56,189,248,0.35), rgba(52,211,153,0.35), rgba(251,191,36,0.35), rgba(244,114,182,0.35));
             animation: spin-halo 3s linear infinite;
             opacity: 1;
         }
 
-        .dot-btn {
-            animation: blink 1.4s infinite both;
-            line-height: 1;
-            color: rgba(255, 255, 255, 0.45);
-        }
+        .dot-btn { animation: blink 1.4s infinite both; line-height: 1; color: rgba(255,255,255,0.45); }
         .dot-btn:nth-child(2) { animation-delay: 0.2s; }
         .dot-btn:nth-child(3) { animation-delay: 0.4s; }
 
         #loading-indicator { display: none; }
         #loading-indicator.visible {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
             animation: textPulse 3s ease-in-out infinite;
+        }
+
+        #elapsed-timer {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            min-width: 2.5ch;
         }
 
         .tag-label span {
             font-size: clamp(0.7rem, 1vw, 0.875rem);
-            /* Padding légèrement augmenté pour laisser place à l'icône */
             padding: clamp(0.3rem, 0.55vw, 0.5rem) clamp(0.75rem, 1.2vw, 1.25rem);
             display: inline-flex;
             align-items: center;
@@ -332,27 +264,18 @@ HTML_TEMPLATE = """
             transition: all 0.2s ease;
         }
 
-        /* Afficher/Cacher les icônes en fonction de l'état du checkbox */
         .tag-label input:checked ~ span .icon-unchecked { display: none; }
         .tag-label input:not(:checked) ~ span .icon-checked { display: none; }
 
         .tag-label input:not(:checked) ~ span {
             background-color: #ffffff;
-            background-image: radial-gradient(
-                circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%),
-                rgba(0, 0, 0, 0.15) 0%,
-                transparent 100%
-            );
+            background-image: radial-gradient(circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0,0,0,0.15) 0%, transparent 100%);
             transition: --glow-size 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
         .tag-label input:checked ~ span {
             background-color: #111827;
-            background-image: radial-gradient(
-                circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%),
-                rgba(255, 255, 255, 0.6) 0%,
-                transparent 100%
-            );
+            background-image: radial-gradient(circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.6) 0%, transparent 100%);
             transition: --glow-size 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
@@ -396,9 +319,8 @@ HTML_TEMPLATE = """
         </form>
 
         <div id="loading-indicator" class="text-center mt-2 mb-6">
-            <span class="text-xs font-bold tracking-widest uppercase text-gray-400">
-                Recherche en cours
-            </span>
+            <span class="text-xs font-bold tracking-widest uppercase text-gray-400">Recherche en cours</span>
+            <span id="elapsed-timer"></span>
         </div>
 
         <div id="results-container" class="mt-4">
@@ -437,33 +359,45 @@ HTML_TEMPLATE = """
             });
         });
 
+        // ── Compteur global ──
+        let _timerInterval = null;
+        function startTimer() {
+            const el = document.getElementById('elapsed-timer');
+            if (!el) return;
+            let s = 0;
+            el.textContent = '0s';
+            _timerInterval = setInterval(() => { el.textContent = (++s) + 's'; }, 1000);
+        }
+        function stopTimer() {
+            clearInterval(_timerInterval);
+            _timerInterval = null;
+            const el = document.getElementById('elapsed-timer');
+            if (el) el.textContent = '';
+        }
+
         const executeSearch = async (form) => {
             try {
                 const formData = new FormData(form);
                 const response = await fetch('?', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'fetch-mode': 'ajax' } // Indique au serveur qu'on veut du JSON
+                    headers: { 'fetch-mode': 'ajax' }
                 });
 
                 if (response.ok) {
                     const data = await response.json();
 
-                    // 1. Mettre à jour l'interface via le DOM (pas de rechargement)
                     const resultsContainer = document.getElementById('results-container');
                     resultsContainer.innerHTML = data.results_html;
                     document.getElementById('tags-container').innerHTML = data.tags_html;
 
-                    // 2. Restaurer la position et l'état
                     resultsContainer.classList.remove('results-hiding');
                     resultsContainer.style.display = '';
                     resultsContainer.style.visibility = '';
 
-                    // 3. Gérer le centrage dynamiquement
                     IS_CENTERED = data.is_centered;
                     applyCentering();
 
-                    // 4. Arrêter l'animation du bouton et le remettre à son état initial
                     document.getElementById('search-wrapper').classList.remove('loading');
                     const btn = document.getElementById('submit-btn');
                     btn.classList.remove('loading');
@@ -471,15 +405,13 @@ HTML_TEMPLATE = """
                     btn.style.width = 'auto';
                     btn.innerHTML = `<span class="btn-label">Chercher</span>`;
 
-                    // 5. Cacher l'indicateur de chargement
+                    stopTimer();
                     document.getElementById('loading-indicator').classList.remove('visible');
 
-                    // 6. Relancer les animations d'apparition des résultats
                     document.querySelectorAll('.result-item').forEach((el, i) => {
                         setTimeout(() => { el.classList.add('visible'); }, i * 80);
                     });
 
-                    // 7. Re-binder les événements de lueur sur les nouveaux tags
                     bindTagEvents();
                 } else {
                     throw new Error("Erreur serveur " + response.status);
@@ -487,7 +419,8 @@ HTML_TEMPLATE = """
             } catch (error) {
                 console.error("Erreur de requête:", error);
 
-                // GESTION DE L'ERREUR 504 OU TIMEOUT
+                stopTimer();
+
                 const indicator = document.getElementById('loading-indicator');
                 indicator.innerHTML = '<span class="text-sm font-bold tracking-widest uppercase text-red-500">⏳ Délai dépassé (Timeout). Veuillez relancer la recherche.</span>';
                 indicator.style.animation = 'none';
@@ -521,9 +454,13 @@ HTML_TEMPLATE = """
 
             const triggerSubmit = () => {
                 const indicator = document.getElementById('loading-indicator');
-                indicator.classList.add('visible');
-                indicator.innerHTML = '<span class="text-xs font-bold tracking-widest uppercase text-gray-400">Recherche en cours</span>';
+                // 1. Réinitialiser le contenu avec le timer inclus
+                indicator.innerHTML = `<span class="text-xs font-bold tracking-widest uppercase text-gray-400">Recherche en cours</span><span id="elapsed-timer"></span>`;
                 indicator.style.animation = '';
+                // 2. Rendre visible
+                indicator.classList.add('visible');
+                // 3. Démarrer le compteur (l'élément existe maintenant)
+                startTimer();
 
                 document.getElementById('search-wrapper').classList.add('loading');
 
@@ -598,12 +535,8 @@ HTML_TEMPLATE = """
                 titleGlow.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
                 titleGlow.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
             });
-            interactiveTitle.addEventListener('mouseenter', () => {
-                titleGlow.style.setProperty('--glow-size', '55px');
-            });
-            interactiveTitle.addEventListener('mouseleave', () => {
-                titleGlow.style.setProperty('--glow-size', '0px');
-            });
+            interactiveTitle.addEventListener('mouseenter', () => { titleGlow.style.setProperty('--glow-size', '55px'); });
+            interactiveTitle.addEventListener('mouseleave', () => { titleGlow.style.setProperty('--glow-size', '0px'); });
         }
 
         if (submitBtn) {
@@ -612,32 +545,21 @@ HTML_TEMPLATE = """
                 submitBtn.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
                 submitBtn.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
             });
-            submitBtn.addEventListener('mouseenter', () => {
-                submitBtn.style.setProperty('--glow-size', '30px');
-            });
-            submitBtn.addEventListener('mouseleave', () => {
-                submitBtn.style.setProperty('--glow-size', '0px');
-            });
+            submitBtn.addEventListener('mouseenter', () => { submitBtn.style.setProperty('--glow-size', '30px'); });
+            submitBtn.addEventListener('mouseleave', () => { submitBtn.style.setProperty('--glow-size', '0px'); });
         }
 
         function bindTagEvents() {
             document.querySelectorAll('.tag-label').forEach(label => {
                 const span = label.querySelector('span');
                 if (!span) return;
-
                 label.addEventListener('mousemove', (e) => {
                     const rect = span.getBoundingClientRect();
                     span.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
                     span.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
                 });
-
-                label.addEventListener('mouseenter', () => {
-                    span.style.setProperty('--glow-size', '30px');
-                });
-
-                label.addEventListener('mouseleave', () => {
-                    span.style.setProperty('--glow-size', '0px');
-                });
+                label.addEventListener('mouseenter', () => { span.style.setProperty('--glow-size', '30px'); });
+                label.addEventListener('mouseleave', () => { span.style.setProperty('--glow-size', '0px'); });
             });
         }
 
