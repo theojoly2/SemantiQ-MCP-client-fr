@@ -241,7 +241,7 @@ HTML_TEMPLATE = """
         #loading-indicator { display: none; }
         #loading-indicator.visible {
             display: flex;
-            align-items: center;
+            align-items: baseline;
             justify-content: center;
             gap: 0.5rem;
             animation: textPulse 3s ease-in-out infinite;
