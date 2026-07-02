@@ -3,3 +3,4 @@ uvicorn
 pydantic
 fastmcp
 markdown
+openai
