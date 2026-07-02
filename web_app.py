@@ -268,6 +268,10 @@ HTML_TEMPLATE = """
             transition: --glow-size 0.3s ease;
         }
 
+        .chat-send-btn {
+            background-image: radial-gradient(circle var(--glow-size, 0px) at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.5) 0%, transparent 100%);
+        }
+
         #search-input {
             font-size: clamp(0.875rem, 1.3vw, 1.125rem);
             padding-top: clamp(0.6rem, 1vw, 0.875rem);
@@ -429,7 +433,7 @@ HTML_TEMPLATE = """
                     <h3 class="font-bold text-gray-900 leading-tight">Assistant Sémantique</h3>
                     <p class="text-xs text-gray-400 font-medium truncate max-w-[200px] sm:max-w-sm" id="chat-modal-filename">Chargement...</p>
                 </div>
-                <button onclick="closeChat()" class="text-gray-300 hover:text-black hover:bg-gray-50 p-2.5 rounded-full transition-colors focus:outline-none">
+                <button onclick="closeChat()" class="magic-btn text-gray-300 hover:text-black hover:bg-gray-50 p-2.5 rounded-full transition-colors focus:outline-none">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
@@ -456,8 +460,8 @@ HTML_TEMPLATE = """
                 <form id="ai-chat-form" onsubmit="event.preventDefault(); handleChatSubmit();" class="relative flex items-center">
                     <input type="text" id="ai-chat-input" placeholder="Interrogez le modèle..." 
                         class="w-full bg-gray-50 border border-gray-100 rounded-[2rem] pl-6 pr-14 py-4 text-sm font-medium focus:outline-none focus:bg-white focus:border-gray-300 focus:shadow-sm transition-all" autocomplete="off">
-                    <button type="submit" class="absolute right-2 text-white bg-black hover:bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center transition-colors">
-                        <svg class="w-4 h-4 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    <button type="submit" class="magic-btn chat-send-btn absolute right-2 text-white bg-black hover:bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19V5M5 12l7-7 7 7"></path></svg>
                     </button>
                 </form>
             </div>
@@ -470,6 +474,16 @@ HTML_TEMPLATE = """
 
         let currentChatDocId = null;
         let chatHistory = [];
+
+        let autoScrollEnabled = true;
+
+        function isNearBottom(container, threshold = 60) {
+            return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+        }
+
+        document.getElementById('chat-messages').addEventListener('scroll', function() {
+            autoScrollEnabled = isNearBottom(this);
+        });
 
         (function() {
             const vw = window.innerWidth;
@@ -522,7 +536,10 @@ HTML_TEMPLATE = """
                     <div class="text-sm text-gray-800 leading-relaxed w-full markdown-body">
                         <p>Je prépare l'analyse de ce document. Quelle est votre question spécifique ?</p>
                     </div>
-                </div>`; // On réinitialise la vue
+                    <div class="text-gray-900 flex-shrink-0 w-5 h-5 flex items-center justify-center sparkle-container">
+                        ${magicSvgTemplate}
+                    </div>
+                </div>`;
 
             const modal = document.getElementById('chat-modal');
             const content = document.getElementById('chat-modal-content');
@@ -590,6 +607,7 @@ HTML_TEMPLATE = """
                 </div>
             `);
             input.value = '';
+            autoScrollEnabled = true;
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
             // 2. Préparation du conteneur IA (inchangé)
@@ -643,7 +661,9 @@ HTML_TEMPLATE = """
                     if (chunkText) {
                         fullResponse += chunkText;
                         messageContent.innerHTML = marked.parse(fullResponse);
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        if (autoScrollEnabled) {
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
                     }
                 }
 
